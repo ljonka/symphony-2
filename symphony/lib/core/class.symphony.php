@@ -330,6 +330,7 @@ abstract class Symphony implements Singleton
             return true;
         }
 
+        //TODO: Select MySQL or Sqlite Adapter, depends on Users selection
         self::$Database = !is_null($database) ? $database : new MySQL;
 
         return true;
