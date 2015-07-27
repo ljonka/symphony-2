@@ -87,21 +87,41 @@ CREATE TABLE `tbl_extensions_delegates` (
 );
 
 -- *** STRUCTURE: `tbl_fields` ***
+DROP TABLE IF EXISTS `tbl_fields_required_enum`;
+CREATE TABLE `tbl_fields_required_enum` (
+    `required` TEXT
+);
+INSERT INTO tbl_fields_required_enum(`required`) VALUES('yes'), ('no');
+
+DROP TABLE IF EXISTS `tbl_fields_location_enum`;
+CREATE TABLE `tbl_fields_location_enum` (
+    `location` TEXT
+);
+INSERT INTO tbl_fields_location_enum(`location`) VALUES('main'), ('sidebar');
+
+DROP TABLE IF EXISTS `tbl_fields_show_column_enum`;
+CREATE TABLE `tbl_fields_show_column_enum` (
+    `show_column` TEXT
+);
+INSERT INTO tbl_fields_show_column_enum(`show_column`) VALUES('yes'), ('no');
+
 DROP TABLE IF EXISTS `tbl_fields`;
 CREATE TABLE `tbl_fields` (
   `id` INTEGER PRIMARY KEY,
-  `label` varchar(255) NOT NULL,
-  `element_name` varchar(50) NOT NULL,
+  `label` TEXT NOT NULL,
+  `element_name` TEXT NOT NULL,
   `type` TEXT NOT NULL,
-  `parent_section` int(11) NOT NULL DEFAULT '0',
-  `required` enum('yes','no') NOT NULL DEFAULT 'yes',
-  `sortorder` int(11) NOT NULL DEFAULT '1',
-  `location` enum('main','sidebar') NOT NULL DEFAULT 'main',
-  `show_column` enum('yes','no') NOT NULL DEFAULT 'no',
-  PRIMARY KEY (`id`),
-  KEY `index` (`element_name`,`type`,`parent_section`)
+  `parent_section` TEXT NOT NULL DEFAULT '0',
+  `required` TEXT NOT NULL DEFAULT 'yes',
+  `sortorder` INTEGER NOT NULL DEFAULT '1',
+  `location` TEXT NOT NULL DEFAULT 'main',
+  `show_column` TEXT NOT NULL DEFAULT 'no',
+  FOREIGN KEY(`required`) REFERENCES tbl_fields_required_enum(`required`),
+  FOREIGN KEY(`location`) REFERENCES tbl_fields_location_enum(`location`),
+  FOREIGN KEY(`show_column`) REFERENCES tbl_fields_show_column_enum(`show_column`)
 );
 
+////////////////////////////////////
 -- *** STRUCTURE: `tbl_fields_author` ***
 DROP TABLE IF EXISTS `tbl_fields_author`;
 CREATE TABLE `tbl_fields_author` (
