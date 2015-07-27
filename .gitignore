@@ -5,3 +5,4 @@ node_modules/
 install-log.txt
 install/logs/
 /nbproject/private/
+netbeans/
