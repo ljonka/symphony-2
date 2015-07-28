@@ -92,9 +92,9 @@ class SSQLite3 extends MySQL {
     }
 
     /**
-     * This function will clean a string using the `mysqli_real_escape_string` function
+     * This function will clean a string using the `SQLite3::escapeString` function
      * taking into account the current database character encoding. Note that this
-     * function does not encode _ or %. If `mysqli_real_escape_string` doesn't exist,
+     * function does not encode _ or %. If `SQLite3::escapeString` doesn't exist,
      * `addslashes` will be used as a backup option
      *
      * @param string $value

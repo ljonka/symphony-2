@@ -154,7 +154,7 @@
 
         /**
          * This function checks the server can support a Symphony installation.
-         * It checks that PHP is 5.2+, MySQL, Zlib, LibXML, XSLT modules are enabled
+         * It checks that PHP is 5.2+, SQLite3, Zlib, LibXML, XSLT modules are enabled
          * and a `install.sql` file exists.
          * If any of these requirements fail the installation will not proceed.
          *
@@ -181,11 +181,11 @@
                 );
             }
 
-            // Is MySQL available?
-            if(!function_exists('mysql_connect')){
+            // Is SQLite3 available?
+            if(!class_exists('SQLite3')){
                 $errors[] = array(
-                    'msg' => __('MySQL extension not present'),
-                    'details'  => __('Symphony requires MySQL to work.')
+                    'msg' => __('SQLite3 extension not present'),
+                    'details'  => __('Symphony requires SQLite3 to work.')
                 );
             }
 
@@ -257,17 +257,14 @@
             // Testing the database connection
             try{
                 Symphony::Database()->connect(
-                    $fields['database']['host'],
-                    $fields['database']['user'],
-                    $fields['database']['password'],
-                    $fields['database']['port'],
                     $fields['database']['db']
                 );
             }
             catch(DatabaseException $e){
                 // Invalid credentials
-                // @link http://dev.mysql.com/doc/refman/5.5/en/error-messages-server.html
-                if($e->getDatabaseErrorCode() === 1044 || $e->getDatabaseErrorCode() === 1045) {
+                // @link https://www.sqlite.org/c3ref/errcode.html
+                // @link https://www.sqlite.org/rescode.html
+                if($e->getDatabaseErrorCode() === 4 || $e->getDatabaseErrorCode() === 14) {
                     $errors['database-invalid-credentials'] = array(
                         'msg' => 'Database credentials were denied',
                         'details' => __('Symphony was unable to access the database with these credentials.')
@@ -292,6 +289,7 @@
                 }
                 // Check the database credentials
                 else if(Symphony::Database()->isConnected()) {
+                    /*
                     // Incorrect MySQL version
                     $version = Symphony::Database()->fetchVar('version', 0, "SELECT VERSION() AS `version`;");
                     if(version_compare($version, '5.0', '<')){
@@ -300,13 +298,15 @@
                             'details' => __('Symphony requires %1$s or greater to work, however version %2$s was detected. This requirement must be met before installation can proceed.', array('<code>MySQL 5.0</code>', '<code>' . $version . '</code>'))
                         );
                     }
+                     *
+                     */
 
-                    else {
+                    //else {
                         // Existing table prefix
                         $tables = Symphony::Database()->fetch(sprintf(
                             "SHOW TABLES FROM `%s` LIKE '%s'",
-                            mysqli_real_escape_string(Symphony::Database()->getConnectionResource(), $fields['database']['db']),
-                            mysqli_real_escape_string(Symphony::Database()->getConnectionResource(), $fields['database']['tbl_prefix']) . '%'
+                            Symphony::Database()->cleanValue($fields['database']['db']),
+                            Symphony::Database()->cleanValue($fields['database']['tbl_prefix']) . '%'
                         ));
 
                         if(is_array($tables) && !empty($tables)) {
@@ -315,7 +315,7 @@
                                 'details' =>  __('The table prefix %s is already in use. Please choose a different prefix to use with Symphony.', array('<code>' . $fields['database']['tbl_prefix'] . '</code>'))
                             );
                         }
-                    }
+                    //}
                 }
             }
             catch(DatabaseException $e){
@@ -414,43 +414,39 @@
             Symphony::Log()->writeToLog(          'INSTALLATION PROCESS STARTED (' . DateTimeObj::get('c') . ')', true);
             Symphony::Log()->writeToLog(          '============================================', true);
 
-            // MySQL: Establishing connection
-            Symphony::Log()->pushToLog('MYSQL: Establishing Connection', E_NOTICE, true, true);
+            // SQLite3: Establishing connection
+            Symphony::Log()->pushToLog('SQLite3: Establishing Connection', E_NOTICE, true, true);
 
             try{
                 Symphony::Database()->connect(
-                    $fields['database']['host'],
-                    $fields['database']['user'],
-                    $fields['database']['password'],
-                    $fields['database']['port'],
                     $fields['database']['db']
                 );
             }
             catch(DatabaseException $e){
                 self::__abort(
-                    'There was a problem while trying to establish a connection to the MySQL server. Please check your settings.',
+                    'There was a problem while trying to establish a connection to the SQLite3 server. Please check your settings.',
                 $start);
             }
 
-            // MySQL: Setting prefix & character encoding
+            // SQLite3: Setting prefix & character encoding
             Symphony::Database()->setPrefix($fields['database']['tbl_prefix']);
             Symphony::Database()->setCharacterEncoding();
             Symphony::Database()->setCharacterSet();
 
-            // MySQL: Importing schema
-            Symphony::Log()->pushToLog('MYSQL: Importing Table Schema', E_NOTICE, true, true);
+            // SQLite3: Importing schema
+            Symphony::Log()->pushToLog('SQLite3: Importing Table Schema', E_NOTICE, true, true);
 
             try{
                 Symphony::Database()->import(file_get_contents(INSTALL . '/includes/install.sql'), true);
             }
             catch(DatabaseException $e){
                 self::__abort(
-                    'There was an error while trying to import data to the database. MySQL returned: ' . $e->getDatabaseErrorCode() . ': ' . $e->getDatabaseErrorMessage(),
+                    'There was an error while trying to import data to the database. SQLite3 returned: ' . $e->getDatabaseErrorCode() . ': ' . $e->getDatabaseErrorMessage(),
                 $start);
             }
 
             // MySQL: Creating default author
-            Symphony::Log()->pushToLog('MYSQL: Creating Default Author', E_NOTICE, true, true);
+            Symphony::Log()->pushToLog('SQLite3: Creating Default Author', E_NOTICE, true, true);
 
             try{
                 Symphony::Database()->insert(array(
@@ -469,7 +465,7 @@
             }
             catch(DatabaseException $e){
                 self::__abort(
-                    'There was an error while trying create the default author. MySQL returned: ' . $e->getDatabaseErrorCode() . ': ' . $e->getDatabaseErrorMessage(),
+                    'There was an error while trying create the default author. SQLite3 returned: ' . $e->getDatabaseErrorCode() . ': ' . $e->getDatabaseErrorMessage(),
                 $start);
             }
 
@@ -581,8 +577,8 @@
             else {
                 Symphony::Log()->pushToLog('An existing ‘workspace’ directory was found at this location. Symphony will use this workspace.', E_NOTICE, true, true);
 
-                // MySQL: Importing workspace data
-                Symphony::Log()->pushToLog('MYSQL: Importing Workspace Data...', E_NOTICE, true, true);
+                // SQLite3: Importing workspace data
+                Symphony::Log()->pushToLog('SQLite3: Importing Workspace Data...', E_NOTICE, true, true);
 
                 if(is_file(WORKSPACE . '/install.sql')) {
                     try{
@@ -593,7 +589,7 @@
                     }
                     catch(DatabaseException $e){
                         self::__abort(
-                            'There was an error while trying to import data to the database. MySQL returned: ' . $e->getDatabaseErrorCode() . ': ' . $e->getDatabaseErrorMessage(),
+                            'There was an error while trying to import data to the database. SQLite3 returned: ' . $e->getDatabaseErrorCode() . ': ' . $e->getDatabaseErrorMessage(),
                         $start);
                     }
                 }
