@@ -35,10 +35,6 @@
 
 		###### DATABASE ######
 		'database' => array(
-			'host' => 'localhost',
-			'port' => '3306',
-			'user' => null,
-			'password' => null,
 			'db' => null,
 			'tbl_prefix' => 'sym_',
 			'query_caching' => 'on',

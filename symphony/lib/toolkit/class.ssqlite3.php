@@ -111,6 +111,77 @@ class SSQLite3 extends MySQL {
     }
 
     /**
+     * This function takes `$table` and returns boolean
+     * if it exists or not.
+     *
+     * @since Symphony 2.3.4
+     * @param string $table
+     *  The table name
+     * @throws DatabaseException
+     * @return boolean
+     *  True if `$table` exists, false otherwise
+     */
+    public function tableExists($table) {
+        //$results = $this->fetch(sprintf(".tables ?%s", $table));
+
+        return (is_array($results) && !empty($results));
+    }
+
+    /**
+     * A convenience method to insert data into the Database. This function
+     * takes an associative array of data to input, with the keys being the column
+     * names and the table. An optional parameter exposes MySQL's ON DUPLICATE
+     * KEY UPDATE functionality, which will update the values if a duplicate key
+     * is found.
+     *
+     * @param array $fields
+     *  An associative array of data to input, with the key's mapping to the
+     *  column names. Alternatively, an array of associative array's can be
+     *  provided, which will perform multiple inserts
+     * @param string $table
+     *  The table name, including the tbl prefix which will be changed
+     *  to this Symphony's table prefix in the query function
+     * @param boolean $updateOnDuplicate
+     *  If set to true, data will updated if any key constraints are found that cause
+     *  conflicts. By default this is set to false, which will not update the data and
+     *  would return an SQL error
+     * @throws DatabaseException
+     * @return boolean
+     */
+    public function insert(array $fields, $table, $updateOnDuplicate = false)
+    {
+        // Multiple Insert
+        if (is_array(current($fields))) {
+            $sql  = "INSERT INTO `$table` (`".implode('`, `', array_keys(current($fields))).'`) VALUES ';
+            $rows = array();
+
+            foreach ($fields as $key => $array) {
+                // Sanity check: Make sure we dont end up with ',()' in the SQL.
+                if (!is_array($array)) {
+                    continue;
+                }
+
+                self::cleanFields($array);
+                $rows[] = '('.implode(', ', $array).')';
+            }
+
+            $sql .= implode(", ", $rows);
+
+            // Single Insert
+        } else {
+            self::cleanFields($fields);
+
+            if ($updateOnDuplicate) {
+                $sql  = "INSERT OR REPLACE INTO `$table` (`".implode('`, `', array_keys($fields)).'`) VALUES ('.implode(', ', $fields).')';
+            }else{
+                $sql  = "INSERT INTO `$table` (`".implode('`, `', array_keys($fields)).'`) VALUES ('.implode(', ', $fields).')';
+            }
+        }
+
+        return $this->query($sql);
+    }
+
+    /**
      * Takes an SQL string and executes it. This function will apply query
      * caching if it is a read operation and if query caching is set. Symphony
      * will convert the `tbl_` prefix of tables to be the one set during installation.
@@ -143,6 +214,8 @@ class SSQLite3 extends MySQL {
             $query = preg_replace('/tbl_(\S+?)([\s\.,]|$)/', self::$_connection['tbl_prefix'] . '\\1\\2', $query);
         }
 
+        //print_r($query);
+
         // TYPE is deprecated since MySQL 4.0.18, ENGINE is preferred
         /*
           if ($query_type == self::__WRITE_OPERATION__) {
@@ -153,6 +226,14 @@ class SSQLite3 extends MySQL {
           } else {
           $query = preg_replace('/^SELECT\s+/i', 'SELECT SQL_NO_CACHE ', $query);
           }
+          }
+         *
+         */
+        //Replace MySQL Show request with sqlite syntax
+        /*
+          if (substr($query, 0, 4) === 'SHOW') {
+          $arrQuery = split('\'', $query);
+          $query = "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '" . $arrQuery[1] . "';";
           }
          *
          */
@@ -170,10 +251,11 @@ class SSQLite3 extends MySQL {
             if ($type == "ASSOC") {
                 $this->_lastResult[] = $this->_result->fetchArray(SQLITE3_ASSOC);
             } else {
-                $this->_lastResult[] = $this->_result->fetchArray();
+                //print_r($query);
+                $this->_lastResult[] = $this->_result->fetchArray(SQLITE3_BLOB);
             }
 
-            mysqli_free_result($this->_result);
+            $this->_result->finalize();
         }
 
         $stop = precision_timer('stop', $start);
@@ -230,6 +312,38 @@ class SSQLite3 extends MySQL {
     }
 
     /**
+     * Sets the MySQL connection to use this timezone instead of the default
+     * MySQL server timezone.
+     *
+     * @throws DatabaseException
+     * @link https://dev.mysql.com/doc/refman/5.6/en/time-zone-support.html
+     * @link https://github.com/symphonycms/symphony-2/issues/1726
+     * @since Symphony 2.3.3
+     * @param string $timezone
+     *  Timezone will human readable, such as Australia/Brisbane.
+     */
+    public function setTimeZone($timezone = null)
+    {
+        if (is_null($timezone)) {
+            return;
+        }
+
+        /*
+        // What is the time now in the install timezone
+        $symphony_date = new DateTime('now', new DateTimeZone($timezone));
+
+        // MySQL wants the offset to be in the format +/-H:I, getOffset returns offset in seconds
+        $utc = new DateTime('now ' . $symphony_date->getOffset() . ' seconds', new DateTimeZone("UTC"));
+
+        // Get the difference between the symphony install timezone and UTC
+        $offset = $symphony_date->diff($utc)->format('%R%H:%I');
+
+        $this->query("SET time_zone = '$offset'");
+         *
+         */
+    }
+
+    /**
      * Returns the last insert ID from the previous query. This is
      * the value from an auto_increment field.
      *
@@ -252,8 +366,14 @@ class SSQLite3 extends MySQL {
      *  error codes when the connection sequence fails
      */
     private function __error($type = null) {
-        $msg = self::$_connection['id']->lastErrorMsg();
-        $errornum = self::$_connection['id']->lastErrorCode();
+        if ($type == 'connect') {
+            $msg = null;
+            $errornum = null;
+        } else {
+            $msg = self::$_connection['id']->lastErrorMsg();
+            $errornum = self::$_connection['id']->lastErrorCode();
+        }
+
 
         /**
          * After a query execution has failed this delegate will provide the query,
@@ -292,6 +412,45 @@ class SSQLite3 extends MySQL {
     'num' => $errornum,
     'query' => $this->_lastQuery
         ));
+    }
+
+    /**
+     * This function will set the character encoding of the database so that any
+     * new tables that are created by Symphony use this character encoding
+     *
+     * @link http://dev.mysql.com/doc/refman/5.0/en/charset-connection.html
+     * @param string $set
+     *  The character encoding to use, by default this 'utf8'
+     * @throws DatabaseException
+     */
+    public function setCharacterSet($set = 'utf8') {
+        //$this->query("SET character_set_connection = '$set', character_set_database = '$set', character_set_server = '$set'");
+        //$this->query("SET CHARACTER SET '$set'");
+    }
+
+    public function import($sql, $force_engine = false) {
+        if ($force_engine) {
+            // Silently attempt to change the storage engine. This prevents INNOdb errors.
+            //$this->query('SET storage_engine=MYISAM');
+        }
+
+        $queries = preg_split('/;[\\r\\n]+/', $sql, -1, PREG_SPLIT_NO_EMPTY);
+
+        if (!is_array($queries) || empty($queries) || count($queries) <= 0) {
+            throw new Exception('The SQL string contains no queries.');
+        }
+
+        foreach ($queries as $sql) {
+            if (trim($sql) !== '') {
+                $result = $this->query($sql);
+            }
+
+            if (!$result) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
 }

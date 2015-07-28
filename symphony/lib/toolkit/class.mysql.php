@@ -93,14 +93,14 @@ class MySQL
      *
      * @var array
      */
-    private static $_log = array();
+    protected static $_log = array();
 
     /**
      * The number of queries this class has executed, defaults to 0.
      *
      * @var integer
      */
-    private static $_query_count = 0;
+    protected static $_query_count = 0;
 
     /**
      * Whether query caching is enabled or not. By default this is set
@@ -116,7 +116,7 @@ class MySQL
      *
      * @var boolean
      */
-    private static $_logging = true;
+    protected static $_logging = true;
 
     /**
      * An associative array of connection properties for this MySQL
@@ -125,7 +125,7 @@ class MySQL
      *
      * @var array
      */
-    private static $_connection = array();
+    protected static $_connection = array();
 
     /**
      * The resource of the last result returned from mysqli_query

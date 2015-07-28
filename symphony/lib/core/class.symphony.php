@@ -314,13 +314,13 @@ abstract class Symphony implements Singleton
 
     /**
      * Setter for `$Database`, accepts a Database object. If `$database`
-     * is omitted, this function will set `$Database` to be of the `MySQL`
+     * is omitted, this function will set `$Database` to be of the `SSQLite3`
      * class.
      *
      * @since Symphony 2.3
      * @param StdClass $database (optional)
      *  The class to handle all Database operations, if omitted this function
-     *  will set `self::$Database` to be an instance of the `MySQL` class.
+     *  will set `self::$Database` to be an instance of the `SSQLite3` class.
      * @return boolean
      *  This function will always return true
      */
@@ -329,8 +329,6 @@ abstract class Symphony implements Singleton
         if (self::Database()) {
             return true;
         }
-
-        //TODO: Select MySQL or Sqlite Adapter, depends on Users selection
         self::$Database = !is_null($database) ? $database : new SSQLite3;
 
         return true;
@@ -339,7 +337,7 @@ abstract class Symphony implements Singleton
     /**
      * Accessor for the current `$Database` instance.
      *
-     * @return MySQL
+     * @return SSQLite3
      */
     public static function Database()
     {
@@ -362,7 +360,7 @@ abstract class Symphony implements Singleton
         $details = self::Configuration()->get('database');
 
         try {
-            if (!self::Database()->connect($details['host'], $details['user'], $details['password'], $details['port'], $details['db'])) {
+            if (!self::Database()->connect(MANIFEST ."/". $details['db'])) {
                 return false;
             }
 

@@ -91,6 +91,7 @@ return array(
     'Singleton' => $baseDir . '/symphony/lib/interface/interface.singleton.php',
     'Sortable' => $baseDir . '/symphony/content/class.sortable.php',
     'StaticXMLDatasource' => $baseDir . '/symphony/lib/toolkit/data-sources/class.datasource.static.php',
+    'SSQLite3' => $baseDir . '/symphony/lib/toolkit/class.ssqlite3.php',
     'Symphony' => $baseDir . '/symphony/lib/core/class.symphony.php',
     'SymphonyErrorPage' => $baseDir . '/symphony/lib/core/class.symphony.php',
     'SymphonyErrorPageHandler' => $baseDir . '/symphony/lib/core/class.symphony.php',

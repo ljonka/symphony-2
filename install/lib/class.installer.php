@@ -174,10 +174,10 @@
             }
 
             // Make sure the install.sql file exists
-            if(!file_exists(INSTALL . '/includes/install.sql') || !is_readable(INSTALL . '/includes/install.sql')){
+            if(!file_exists(INSTALL . '/includes/install_sqlite.sql') || !is_readable(INSTALL . '/includes/install_sqlite.sql')){
                 $errors[] = array(
-                    'msg' => __('Missing install.sql file'),
-                    'details'  => __('It appears that %s is either missing or not readable. This is required to populate the database and must be uploaded before installation can commence. Ensure that PHP has read permissions.', array('<code>install.sql</code>'))
+                    'msg' => __('Missing install_sqlite.sql file'),
+                    'details'  => __('It appears that %s is either missing or not readable. This is required to populate the database and must be uploaded before installation can commence. Ensure that PHP has read permissions.', array('<code>install_sqlite.sql</code>'))
                 );
             }
 
@@ -257,7 +257,7 @@
             // Testing the database connection
             try{
                 Symphony::Database()->connect(
-                    $fields['database']['db']
+                    MANIFEST."/".$fields['database']['db']
                 );
             }
             catch(DatabaseException $e){
@@ -303,6 +303,7 @@
 
                     //else {
                         // Existing table prefix
+                        /*
                         $tables = Symphony::Database()->fetch(sprintf(
                             "SHOW TABLES FROM `%s` LIKE '%s'",
                             Symphony::Database()->cleanValue($fields['database']['db']),
@@ -315,6 +316,8 @@
                                 'details' =>  __('The table prefix %s is already in use. Please choose a different prefix to use with Symphony.', array('<code>' . $fields['database']['tbl_prefix'] . '</code>'))
                             );
                         }
+                         *
+                         */
                     //}
                 }
             }
@@ -414,61 +417,6 @@
             Symphony::Log()->writeToLog(          'INSTALLATION PROCESS STARTED (' . DateTimeObj::get('c') . ')', true);
             Symphony::Log()->writeToLog(          '============================================', true);
 
-            // SQLite3: Establishing connection
-            Symphony::Log()->pushToLog('SQLite3: Establishing Connection', E_NOTICE, true, true);
-
-            try{
-                Symphony::Database()->connect(
-                    $fields['database']['db']
-                );
-            }
-            catch(DatabaseException $e){
-                self::__abort(
-                    'There was a problem while trying to establish a connection to the SQLite3 server. Please check your settings.',
-                $start);
-            }
-
-            // SQLite3: Setting prefix & character encoding
-            Symphony::Database()->setPrefix($fields['database']['tbl_prefix']);
-            Symphony::Database()->setCharacterEncoding();
-            Symphony::Database()->setCharacterSet();
-
-            // SQLite3: Importing schema
-            Symphony::Log()->pushToLog('SQLite3: Importing Table Schema', E_NOTICE, true, true);
-
-            try{
-                Symphony::Database()->import(file_get_contents(INSTALL . '/includes/install.sql'), true);
-            }
-            catch(DatabaseException $e){
-                self::__abort(
-                    'There was an error while trying to import data to the database. SQLite3 returned: ' . $e->getDatabaseErrorCode() . ': ' . $e->getDatabaseErrorMessage(),
-                $start);
-            }
-
-            // MySQL: Creating default author
-            Symphony::Log()->pushToLog('SQLite3: Creating Default Author', E_NOTICE, true, true);
-
-            try{
-                Symphony::Database()->insert(array(
-                    'id'                    => 1,
-                    'username'              => Symphony::Database()->cleanValue($fields['user']['username']),
-                    'password'              => Cryptography::hash(Symphony::Database()->cleanValue($fields['user']['password'])),
-                    'first_name'            => Symphony::Database()->cleanValue($fields['user']['firstname']),
-                    'last_name'             => Symphony::Database()->cleanValue($fields['user']['lastname']),
-                    'email'                 => Symphony::Database()->cleanValue($fields['user']['email']),
-                    'last_seen'             => NULL,
-                    'user_type'             => 'developer',
-                    'primary'               => 'yes',
-                    'default_area'          => NULL,
-                    'auth_token_active'     => 'no'
-                ), 'tbl_authors');
-            }
-            catch(DatabaseException $e){
-                self::__abort(
-                    'There was an error while trying create the default author. SQLite3 returned: ' . $e->getDatabaseErrorCode() . ': ' . $e->getDatabaseErrorMessage(),
-                $start);
-            }
-
             // Configuration: Populating array
             $conf = Symphony::Configuration()->get();
 
@@ -506,6 +454,61 @@
             if(!General::realiseDirectory(MANIFEST . '/tmp', $conf['directory']['write_mode'])){
                 self::__abort(
                     'Could not create ‘tmp’ directory. Check permission on /manifest.',
+                $start);
+            }
+
+            // SQLite3: Establishing connection
+            Symphony::Log()->pushToLog('SQLite3: Establishing Connection', E_NOTICE, true, true);
+
+            try{
+                Symphony::Database()->connect(
+                    MANIFEST."/".$fields['database']['db']
+                );
+            }
+            catch(DatabaseException $e){
+                self::__abort(
+                    'There was a problem while trying to establish a connection to the SQLite3 server. Please check your settings.',
+                $start);
+            }
+
+            // SQLite3: Setting prefix & character encoding
+            Symphony::Database()->setPrefix($fields['database']['tbl_prefix']);
+            Symphony::Database()->setCharacterEncoding();
+            Symphony::Database()->setCharacterSet();
+
+            // SQLite3: Importing schema
+            Symphony::Log()->pushToLog('SQLite3: Importing Table Schema', E_NOTICE, true, true);
+
+            try{
+                Symphony::Database()->import(file_get_contents(INSTALL . '/includes/install_sqlite.sql'), true);
+            }
+            catch(DatabaseException $e){
+                self::__abort(
+                    'There was an error while trying to import data to the database. SQLite3 returned: ' . $e->getDatabaseErrorCode() . ': ' . $e->getDatabaseErrorMessage(),
+                $start);
+            }
+
+            // MySQL: Creating default author
+            Symphony::Log()->pushToLog('SQLite3: Creating Default Author', E_NOTICE, true, true);
+
+            try{
+                Symphony::Database()->insert(array(
+                    //'id'                    => 1,
+                    'username'              => Symphony::Database()->cleanValue($fields['user']['username']),
+                    'password'              => Cryptography::hash(Symphony::Database()->cleanValue($fields['user']['password'])),
+                    'first_name'            => Symphony::Database()->cleanValue($fields['user']['firstname']),
+                    'last_name'             => Symphony::Database()->cleanValue($fields['user']['lastname']),
+                    'email'                 => Symphony::Database()->cleanValue($fields['user']['email']),
+                    'last_seen'             => NULL,
+                    'user_type'             => 'developer',
+                    'primary'               => 'yes',
+                    'default_area'          => NULL,
+                    'auth_token_active'     => 'no'
+                ), 'tbl_authors');
+            }
+            catch(DatabaseException $e){
+                self::__abort(
+                    'There was an error while trying create the default author. SQLite3 returned: ' . $e->getDatabaseErrorCode() . ': ' . $e->getDatabaseErrorMessage(),
                 $start);
             }
 
@@ -580,10 +583,10 @@
                 // SQLite3: Importing workspace data
                 Symphony::Log()->pushToLog('SQLite3: Importing Workspace Data...', E_NOTICE, true, true);
 
-                if(is_file(WORKSPACE . '/install.sql')) {
+                if(is_file(WORKSPACE . '/install_sqlite.sql')) {
                     try{
                         Symphony::Database()->import(
-                            file_get_contents(WORKSPACE . '/install.sql'),
+                            file_get_contents(WORKSPACE . '/install_sqlite.sql'),
                             true
                         );
                     }
