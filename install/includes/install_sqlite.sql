@@ -20,7 +20,7 @@ INSERT INTO tbl_authors_auth_token_active_enum(auth_token_active) VALUES('yes'),
 DROP TABLE IF EXISTS `tbl_authors`;
 CREATE TABLE IF NOT EXISTS `tbl_authors` (
   `id` INTEGER PRIMARY KEY,
-  `username` TEXT NOT NULL,
+  `username` TEXT NOT NULL UNIQUE ON CONFLICT IGNORE,
   `password` TEXT NOT NULL,
   `first_name` TEXT DEFAULT NULL,
   `last_name` TEXT DEFAULT NULL,
@@ -269,7 +269,7 @@ CREATE TABLE IF NOT EXISTS `tbl_sections_association` (
 -- *** STRUCTURE: `tbl_sessions` ***
 DROP TABLE IF EXISTS `tbl_sessions`;
 CREATE TABLE IF NOT EXISTS `tbl_sessions` (
-  `session` TEXT NOT NULL,
+  `session` TEXT NOT NULL PRIMARY KEY,
   `session_expires` INTEGER unsigned NOT NULL DEFAULT '0',
   `session_data` text
 );

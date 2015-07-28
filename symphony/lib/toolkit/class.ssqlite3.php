@@ -148,11 +148,10 @@ class SSQLite3 extends MySQL {
      * @throws DatabaseException
      * @return boolean
      */
-    public function insert(array $fields, $table, $updateOnDuplicate = false)
-    {
+    public function insert(array $fields, $table, $updateOnDuplicate = false) {
         // Multiple Insert
         if (is_array(current($fields))) {
-            $sql  = "INSERT INTO `$table` (`".implode('`, `', array_keys(current($fields))).'`) VALUES ';
+            $sql = "INSERT INTO `$table` (`" . implode('`, `', array_keys(current($fields))) . '`) VALUES ';
             $rows = array();
 
             foreach ($fields as $key => $array) {
@@ -162,7 +161,7 @@ class SSQLite3 extends MySQL {
                 }
 
                 self::cleanFields($array);
-                $rows[] = '('.implode(', ', $array).')';
+                $rows[] = '(' . implode(', ', $array) . ')';
             }
 
             $sql .= implode(", ", $rows);
@@ -172,9 +171,15 @@ class SSQLite3 extends MySQL {
             self::cleanFields($fields);
 
             if ($updateOnDuplicate) {
-                $sql  = "INSERT OR REPLACE INTO `$table` (`".implode('`, `', array_keys($fields)).'`) VALUES ('.implode(', ', $fields).')';
-            }else{
-                $sql  = "INSERT INTO `$table` (`".implode('`, `', array_keys($fields)).'`) VALUES ('.implode(', ', $fields).')';
+                $sql = "INSERT OR IGNORE INTO `$table` (`" . implode('`, `', array_keys($fields)) . '`) VALUES (' . implode(', ', $fields) . '); ';
+                $sql .= "UPDATE `$table` SET ";
+                foreach ($fields as $key => $value) {
+                    $sql .= " `$key` = $value,";
+                }
+                $sql = trim($sql, ',');
+
+            } else {
+                $sql = "INSERT INTO `$table` (`" . implode('`, `', array_keys($fields)) . '`) VALUES (' . implode(', ', $fields) . ')';
             }
         }
 
@@ -215,7 +220,6 @@ class SSQLite3 extends MySQL {
         }
 
         //print_r($query);
-
         // TYPE is deprecated since MySQL 4.0.18, ENGINE is preferred
         /*
           if ($query_type == self::__WRITE_OPERATION__) {
@@ -238,6 +242,7 @@ class SSQLite3 extends MySQL {
          *
          */
 
+
         $this->flush();
         $this->_lastQuery = $query;
         $this->_lastQueryHash = $query_hash;
@@ -257,6 +262,7 @@ class SSQLite3 extends MySQL {
 
             $this->_result->finalize();
         }
+
 
         $stop = precision_timer('stop', $start);
 
@@ -322,23 +328,22 @@ class SSQLite3 extends MySQL {
      * @param string $timezone
      *  Timezone will human readable, such as Australia/Brisbane.
      */
-    public function setTimeZone($timezone = null)
-    {
+    public function setTimeZone($timezone = null) {
         if (is_null($timezone)) {
             return;
         }
 
         /*
-        // What is the time now in the install timezone
-        $symphony_date = new DateTime('now', new DateTimeZone($timezone));
+          // What is the time now in the install timezone
+          $symphony_date = new DateTime('now', new DateTimeZone($timezone));
 
-        // MySQL wants the offset to be in the format +/-H:I, getOffset returns offset in seconds
-        $utc = new DateTime('now ' . $symphony_date->getOffset() . ' seconds', new DateTimeZone("UTC"));
+          // MySQL wants the offset to be in the format +/-H:I, getOffset returns offset in seconds
+          $utc = new DateTime('now ' . $symphony_date->getOffset() . ' seconds', new DateTimeZone("UTC"));
 
-        // Get the difference between the symphony install timezone and UTC
-        $offset = $symphony_date->diff($utc)->format('%R%H:%I');
+          // Get the difference between the symphony install timezone and UTC
+          $offset = $symphony_date->diff($utc)->format('%R%H:%I');
 
-        $this->query("SET time_zone = '$offset'");
+          $this->query("SET time_zone = '$offset'");
          *
          */
     }
