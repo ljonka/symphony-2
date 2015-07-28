@@ -15,22 +15,19 @@
  * Author: Leonid Verhovskij - l.verhovskij@gmail.com
  * Date: 27.07.2015
  */
-
-class SQLite extends MySQL{
+class SSQLite3 extends MySQL {
     //Override mysqli functions with sqlite equivalents
+
     /**
      * Determines if a connection has been made to the MySQL server
      *
      * @return boolean
      */
-    public static function isConnected()
-    {
+    public static function isConnected() {
         try {
             $connected = (
-                isset(self::$_connection['id'])
-                && !is_null(self::$_connection['id'])
-                && mysqli_ping(self::$_connection['id'])
-            );
+                    isset(self::$_connection['id']) && !is_null(self::$_connection['id'])
+                    );
         } catch (Exception $ex) {
             return false;
         }
@@ -44,10 +41,9 @@ class SQLite extends MySQL{
      *
      * @return boolean
      */
-    public function close()
-    {
+    public function close() {
         if ($this->isConnected()) {
-            return mysqli_close(self::$_connection['id']);
+            return self::$_connection['id']->close();
         }
     }
 
@@ -67,28 +63,13 @@ class SQLite extends MySQL{
      * @throws DatabaseException
      * @return boolean
      */
-    public function connect($host = null, $user = null, $password = null, $port = '3306', $database = null)
-    {
+    public function connect($database = null) {
         self::$_connection = array(
-            'host' => $host,
-            'user' => $user,
-            'pass' => $password,
-            'port' => $port,
             'database' => $database
         );
 
         try {
-            self::$_connection['id'] = mysqli_connect(
-                self::$_connection['host'],
-                self::$_connection['user'],
-                self::$_connection['pass'],
-                self::$_connection['database'],
-                self::$_connection['port']
-            );
-
-            if (!$this->isConnected()) {
-                $this->__error('connect');
-            }
+            self::$_connection['id'] = new SQLite3(self::$_connection['database']);
         } catch (Exception $ex) {
             $this->__error('connect');
         }
@@ -106,9 +87,8 @@ class SQLite extends MySQL{
      * @param string $set
      *  The character encoding to use, by default this 'utf8'
      */
-    public function setCharacterEncoding($set = 'utf8')
-    {
-        mysqli_set_charset(self::$_connection['id'], $set);
+    public function setCharacterEncoding($set = 'utf8') {
+        //mysqli_set_charset(self::$_connection['id'], $set);
     }
 
     /**
@@ -122,10 +102,9 @@ class SQLite extends MySQL{
      * @return string
      *  The escaped SQL string
      */
-    public static function cleanValue($value)
-    {
-        if (function_exists('mysqli_real_escape_string') && self::isConnected()) {
-            return mysqli_real_escape_string(self::$_connection['id'], $value);
+    public static function cleanValue($value) {
+        if (self::isConnected()) {
+            return self::$_connection['id']->escapeString($value);
         } else {
             return addslashes($value);
         }
@@ -150,8 +129,7 @@ class SQLite extends MySQL{
      * @return boolean
      *  True if the query executed without errors, false otherwise
      */
-    public function query($query, $type = "OBJECT")
-    {
+    public function query($query, $type = "OBJECT") {
         if (empty($query) || self::isConnected() === false) {
             return false;
         }
@@ -159,42 +137,40 @@ class SQLite extends MySQL{
         $start = precision_timer();
         $query = trim($query);
         $query_type = $this->determineQueryType($query);
-        $query_hash = md5($query.$start);
+        $query_hash = md5($query . $start);
 
         if (self::$_connection['tbl_prefix'] !== 'tbl_') {
-            $query = preg_replace('/tbl_(\S+?)([\s\.,]|$)/', self::$_connection['tbl_prefix'].'\\1\\2', $query);
+            $query = preg_replace('/tbl_(\S+?)([\s\.,]|$)/', self::$_connection['tbl_prefix'] . '\\1\\2', $query);
         }
 
         // TYPE is deprecated since MySQL 4.0.18, ENGINE is preferred
-        if ($query_type == self::__WRITE_OPERATION__) {
-            $query = preg_replace('/TYPE=(MyISAM|InnoDB)/i', 'ENGINE=$1', $query);
-
-        } elseif ($query_type == self::__READ_OPERATION__ && !preg_match('/^SELECT\s+SQL(_NO)?_CACHE/i', $query)) {
-            if ($this->isCachingEnabled()) {
-                $query = preg_replace('/^SELECT\s+/i', 'SELECT SQL_CACHE ', $query);
-            } else {
-                $query = preg_replace('/^SELECT\s+/i', 'SELECT SQL_NO_CACHE ', $query);
-            }
-        }
+        /*
+          if ($query_type == self::__WRITE_OPERATION__) {
+          $query = preg_replace('/TYPE=(MyISAM|InnoDB)/i', 'ENGINE=$1', $query);
+          } elseif ($query_type == self::__READ_OPERATION__ && !preg_match('/^SELECT\s+SQL(_NO)?_CACHE/i', $query)) {
+          if ($this->isCachingEnabled()) {
+          $query = preg_replace('/^SELECT\s+/i', 'SELECT SQL_CACHE ', $query);
+          } else {
+          $query = preg_replace('/^SELECT\s+/i', 'SELECT SQL_NO_CACHE ', $query);
+          }
+          }
+         *
+         */
 
         $this->flush();
         $this->_lastQuery = $query;
         $this->_lastQueryHash = $query_hash;
-        $this->_result = mysqli_query(self::$_connection['id'], $query);
-        $this->_lastInsertID = mysqli_insert_id(self::$_connection['id']);
+        $this->_result = self::$_connection['id']->query($query);
+        $this->_lastInsertID = self::$_connection['id']->lastInsertRowID();
         self::$_query_count++;
 
-        if (mysqli_error(self::$_connection['id'])) {
+        if (self::$_connection['id']->lastErrorCode()) {
             $this->__error();
-        } elseif (($this->_result instanceof mysqli_result)) {
+        } elseif (($this->_result instanceof SQLite3Result)) {
             if ($type == "ASSOC") {
-                while ($row = mysqli_fetch_assoc($this->_result)) {
-                    $this->_lastResult[] = $row;
-                }
+                $this->_lastResult[] = $this->_result->fetchArray(SQLITE3_ASSOC);
             } else {
-                while ($row = mysqli_fetch_object($this->_result)) {
-                    $this->_lastResult[] = $row;
-                }
+                $this->_lastResult[] = $this->_result->fetchArray();
             }
 
             mysqli_free_result($this->_result);
@@ -260,8 +236,7 @@ class SQLite extends MySQL{
      * @return integer
      *  The last interested row's ID
      */
-    public function getInsertID()
-    {
+    public function getInsertID() {
         return $this->_lastInsertID;
     }
 
@@ -276,15 +251,9 @@ class SQLite extends MySQL{
      *  Accepts one parameter, 'connect', which will return the correct
      *  error codes when the connection sequence fails
      */
-    private function __error($type = null)
-    {
-        if ($type == 'connect') {
-            $msg = mysqli_connect_error();
-            $errornum = mysqli_connect_errno();
-        } else {
-            $msg = mysqli_error(self::$_connection['id']);
-            $errornum = mysqli_errno(self::$_connection['id']);
-        }
+    private function __error($type = null) {
+        $msg = self::$_connection['id']->lastErrorMsg();
+        $errornum = self::$_connection['id']->lastErrorCode();
 
         /**
          * After a query execution has failed this delegate will provide the query,
@@ -318,12 +287,11 @@ class SQLite extends MySQL{
             }
         }
 
-        throw new DatabaseException(__('MySQL Error (%1$s): %2$s in query: %3$s', array($errornum, $msg, $this->_lastQuery)), array(
-            'msg' => $msg,
-            'num' => $errornum,
-            'query' => $this->_lastQuery
+        throw new DatabaseException(__('SQLite3 Error (%1$s): %2$s in query: %3$s', array($errornum, $msg, $this->_lastQuery)), array(
+    'msg' => $msg,
+    'num' => $errornum,
+    'query' => $this->_lastQuery
         ));
     }
-
 
 }
